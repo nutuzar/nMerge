@@ -6,7 +6,7 @@ import winsound
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QLineEdit, QListWidget, QAbstractItemView, 
                              QMessageBox, QProgressBar, QTextEdit, QFileDialog, QGroupBox, 
-                             QSplitter, QDialog, QTextBrowser)
+                             QSplitter, QDialog, QTextBrowser, QCheckBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPalette, QColor, QFont
 
@@ -28,52 +28,46 @@ DEFAULT_EMOTIONS = [
 ]
 
 TR_ABOUT_HTML = """
-<h3 style='color: #2a82da;'>nMerge: LLM Çeviri Optimizasyonu İçin Akıllı Altyazı (SRT) Ön İşlemci ve Gramer Motoru</h3>
+<h3 style='color: #2a82da;'>nMerge v1.2: LLM Çeviri Optimizasyonu İçin Akıllı Altyazı (SRT) Ön İşlemci ve Gramer Motoru</h3>
 <br>
 <b>Projenin Amacı ve Felsefesi</b><br>
 nMerge, altyazı (SRT) dosyalarını geleneksel izleme deneyimi için değil, Büyük Dil Modeli (LLM) tabanlı yapay zeka çeviri motorlarına hazırlamak amacıyla geliştirilmiş, NLP (Doğal Dil İşleme) destekli bir ön işlem (pre-processing) otomasyonudur.<br><br>
-Modern Speech-to-Text (STT) yazılımları, konuşma metnini yazıya dökerken gramer kurallarını değil, konuşmacının nefes alışlarını ve sahnelerdeki sessizlik sürelerini (zaman damgalarını) referans alır. Bu durum, tek bir cümlenin anlamsız yerlerden bölünerek iki veya üç farklı altyazı satırına dağılmasına neden olur. Bağlamı kopmuş, öznesi bir satırda, yüklemi başka bir satırda kalmış bu yarım cümleler, LLM tabanlı çeviri motorlarına satır satır gönderildiğinde çeviri kalitesi tamamen çöker; motor bağlamı kaybeder ve halüsinasyon üretir.<br><br>
-nMerge, bu sorunu çözmek için "Fiziksel zamanlamaya değil, gramatikal bütünlüğe saygı duy" felsefesini benimser. spaCy kütüphanesini kullanarak cümlenin dilbilgisi anatomisini çıkarır, STT'nin uydurduğu sahte noktalama işaretlerini ezer ve çeviri motorunun metni tek parça, eksiksiz bir bağlam içinde görmesini sağlamak için zaman bariyerlerini yıkarak yarım kalan satırları birbirine diker.<br><br>
-nMerge, altyazılardaki derin dilbilgisi analizlerini gerçekleştirmek için spaCy kütüphanesinin "en_core_web_sm" (English Core Web Small) isimli önceden eğitilmiş doğal dil işleme (NLP) modelini kalbinde taşır. Bu model, kelimelerin cümle içindeki sentaktik görevlerini (Part-of-Speech tagging) ve bağlaç, edat gibi havada kalan yapıları olağanüstü bir isabetle tespit edebilen, OntoNotes veri setiyle eğitilmiş hızlı ve kompakt bir evrişimli sinir ağıdır (CNN). Devasa dil modellerinin hantallığından ve API gecikmelerinden bilinçli olarak kaçınan nMerge, bu "hafif ama keskin zekalı" model sayesinde binlerce satırlık SRT dosyalarını işlemciyi yormadan, tamamen çevrimdışı (offline) olarak ve milisaniyeler içinde analiz eder.<br><br>
-<b>Temel Yetenekler ve Algoritmik Çözümler</b><br>
-<b>1. Zaman-Bağımsız Mutlak Gramer Birleştirmesi:</b> Geleneksel senkronizasyon araçlarının aksine nMerge, iki altyazı satırı arasındaki zaman farkını tamamen görmezden gelir. Eğer birinci satırın sonu ve ikinci satırın başlangıcı dilbilgisi açısından birbirinin devamıysa, aradan ne kadar zaman geçmiş olursa olsun bu iki satır tek bir metin bloğu haline getirilir. Çeviri motoruna eksiksiz bir metin sunmak için ekrandaki zamanlama feda edilir.<br><br>
-<b>2. Şartsız Punctuation (Noktalama) Diktatörlüğü:</b> Satır sonundaki Virgül (,), Noktalı Virgül (;), İki Nokta (:), Üç Nokta (...) veya Çift/Üçlü Tire (--, ---) işaretleri görüldüğü anda, alt satırın büyük veya küçük harfle başlamasına bakılmaksızın iki satır derhal birleştirilir.<br><br>
-<b>3. Derin POS (Part-of-Speech) Analizi ve Sahte Nokta İhlali:</b> STT yazılımları, konuşmacı duraksadığında cümlenin ortasına hatalı bir nokta (.) veya ünlem (!) koyabilir. nMerge, bu sahte noktalara aldanmaz. Satırın sonundaki noktalama işaretini geçici olarak görmezden gelir ve sondan geriye doğru ilk anlamlı kelimeyi bulur. Bu kelimenin NLP türü (POS Etiketi) bir Edat (ADP), Bağlaç (CCONJ, SCONJ), Yardımcı Fiil (AUX) veya Ek (PART) ise, sistem cümlenin henüz tamamlanmadığına karar verir. STT'nin koyduğu hatalı noktayı ezip geçerek alt satırla birleştirme işlemini zorlar.<br><br>
-<b>4. Gelişmiş Regex ile Cerrahi Temizlik ve Korumalar:</b> Birleştirme işlemi sırasında oluşan yapısal bozukluklar düzenli ifadeler (Regex) ile temizlenir:<br>
-- <i>Diyalog Koruması:</i> Alt satır tek bir tire (-) ile başlıyorsa, bu durum başka bir karakterin konuşmaya başladığının evrensel işaretidir. nMerge bunu anında algılar ve ne olursa olsun birleştirmeyi reddeder.<br>
-- <i>Sahte Nokta İmhası:</i> İki satır birleştirilirken, arada kalan ve cümlenin yapısını bozan hatalı tekil noktalar ameliyat edilerek silinir.<br>
-- <i>Kalıntı Temizliği:</i> Cümle başlarında veya sonlarında kalan üç noktalar ve yazar izi olan çift tireler temizlenerek metin pürüzsüzleştirilir.<br><br>
-<b>5. Akıllı Nida ve Duygu İfadesi (Filler Words) Filtresi:</b> Altyazılarda tek başına bir satırı işgal eden "Mmm.", "Ah!", "Uh-huh" gibi çeviriye hiçbir anlam katmayan gevezelikler tamamen yok edilir. Kalan saf metinde kelime satırda tamamen yalnızsa, duygu ifadeleri sözlüğünde aranır ve eşleşme durumunda tüm satır silinir. Cümle içinde geçen "Oh, I see" gibi ifadelere dokunulmaz.<br><br>
-<b>6. Hafızalı İmla ve Büyük/Küçük Harf Düzeltici:</b> STT yazılımlarının cümlenin ortasında anlamsızca büyük harfle başlattığı kelimeler spaCy üzerinden denetlenir. Eğer önceki satır noktayla bitmemişse, yeni satırın ilk kelimesinin büyük harfini ezer ve küçük harfe zorlar (özel isimler ve I zamiri hariç).
+Modern Speech-to-Text (STT) yazılımları, konuşma metnini yazıya dökerken gramer kurallarını değil, konuşmacının nefes alışlarını ve sahnelerdeki sessizlik sürelerini referans alır. Bu durum, tek bir cümlenin anlamsız yerlerden bölünerek iki veya üç farklı altyazı satırına dağılmasına neden olur. nMerge, bu sorunu çözmek için "Fiziksel zamanlamaya değil, gramatikal bütünlüğe saygı duy" felsefesini benimser.<br><br>
+nMerge, altyazılardaki derin dilbilgisi analizlerini gerçekleştirmek için spaCy kütüphanesinin "en_core_web_sm" (English Core Web Small) isimli önceden eğitilmiş NLP modelini kalbinde taşır.<br><br>
+<b>v1.2 ile Kusursuzlaşan İşlem Boru Hattı ve Diktatörlük Modu:</b><br><br>
+<b>1. Aşama: Ön Yıkama ve "Evrensel Hafızalı" ALL CAPS Normalizasyonu:</b> Bazı eski altyazılar tamamen büyük harfle (ALL CAPS) yazılmış olabilir. Bu durum spaCy modelinin tüm kelimeleri Özel İsim (PROPN) sanmasına neden olur. nMerge, her satırı analiz eder. Eğer karakterlerin %80'inden fazlası büyük harfse, o satıra "ALL CAPS" mührü vurur ve spaCy'nin anlayabilmesi için geçici olarak küçük harfe indirger.<br><br>
+<b>2. Aşama: Zaman-Bağımsız Gramatikal Birleştirme (Dokunulmazlık İlkesi ve Bypass):</b> spaCy kullanılarak cümlenin dilbilgisi anatomisi çıkarılır. Bu aşamada iki ölümcül kural devrededir:<br>
+<i>- Orijinal DNA Referansı:</i> Sistem, alt satırın küçük harfle başlayıp başlamadığını sahte (küçültülmüş) metinden değil, orijinal dosyadan teyit eder. Orijinali küçükse tereddütsüz birleştirir. Alt satırın orijinal objesi (State) asla zehirlenmez, dokunulmazlığı korunur.<br>
+<i>- ALL CAPS Bypass:</i> Eğer satır tamamen büyük harflerden oluşuyorsa (ALL CAPS mührü varsa) ve sonunda açıkça nokta, ünlem veya soru işareti yoksa, sistem diğer tüm kuralları ezerek satırı alt satırla birleştirir.<br><br>
+<b>3. Aşama: Mutlak İrade ile Nida Temizliği (Mikro-Cerrahi ve Alfanümerik Koruma):</b> spaCy'nin neyin "nida" (INTJ) olduğuna karar verme yetkisi tamamen elinden alınmıştır! Sistem, cümle içindeki çöpleri ararken sadece ve sadece sizin arayüzden belirlediğiniz <b>Duygu İfadeleri (Sözlük)</b> listesine itaat eder. Ayrıca sayılar ve rakamlar "isalnum()" kalkanıyla korunarak istatistiksel hata kurbanı olmaktan %100 kurtarılmıştır.<br><br>
+<b>4. Aşama: Hafızalı İmla ve spaCy Cilası (Stateful Orthography):</b> Metin son kez NLP motorundan geçer. Cümlenin ortasında kalan haksız büyük harfler küçük harfe zorlanır. Döngü, cümlenin nasıl bittiğini hafızasına yazar ve sonraki satırın kaderini belirler.<br><br>
+<b>* Gelişmiş Telemetri (Röntgen) Modu:</b> Kodun birleştirmeyi reddettiği satırlarda, kararın arkasındaki nedeni (hangi kurala takıldığını, orijinal ilk harfin ne olduğunu vb.) log ekranına basarak karanlıkta kalan hataları teşhis etmenizi sağlar.<br><br>
 <br><hr><br>
-<p style='text-align: center; color: #888;'><b>Developed by nutuzar | nMerge Otomasyon v1.0</b></p>
+<p style='text-align: center; color: #888;'><b>Developed by nutuzar | nMerge Otomasyon v1.2</b></p>
 """
 
 EN_ABOUT_HTML = """
-<h3 style='color: #2a82da;'>nMerge: Smart Subtitle (SRT) Preprocessor and Grammar Engine for LLM Translation Optimization</h3>
+<h3 style='color: #2a82da;'>nMerge v1.2: Smart Subtitle (SRT) Preprocessor and Grammar Engine for LLM Optimization</h3>
 <br>
 <b>Project Purpose and Philosophy</b><br>
 nMerge is an NLP-supported preprocessing automation developed to prepare subtitle (SRT) files not for traditional viewing experiences, but for Large Language Model (LLM) based AI translation engines.<br><br>
-Modern Speech-to-Text (STT) software references speakers' breathing patterns and scene silence durations (timestamps) rather than grammar rules when transcribing speech. This causes single sentences to be split at meaningless points and distributed across multiple subtitle lines. When these half-sentences, with their contexts broken and subjects disconnected from verbs, are sent line by line to LLM translation engines, translation quality completely collapses; the engine loses context and produces hallucinations.<br><br>
-To solve this, nMerge adopts the philosophy: "Respect grammatical integrity, not physical timing." Using the spaCy library, it extracts the grammatical anatomy of the sentence, overwrites fake punctuation marks fabricated by the STT, and tears down time barriers to stitch fragmented lines together, ensuring the translation engine sees the text as a single, complete context.<br><br>
-At its core, nMerge carries spaCy's pre-trained NLP model named "en_core_web_sm" (English Core Web Small) for deep grammatical analysis. This model is a fast and compact Convolutional Neural Network (CNN) trained on the OntoNotes dataset, capable of identifying syntactic roles of words (Part-of-Speech tagging) and dangling structures like conjunctions and adpositions with extraordinary accuracy. By consciously avoiding the clumsiness and API latencies of giant language models, nMerge analyzes thousands of lines of SRT files in milliseconds, completely offline, without straining the CPU.<br><br>
-<b>Core Capabilities and Algorithmic Solutions</b><br>
-<b>1. Time-Independent Absolute Grammar Merging:</b> Unlike traditional synchronization tools, nMerge completely ignores the time gap between two subtitle lines. If the end of the first line and the beginning of the second line are grammatical continuations, the lines are merged into a single text block regardless of the elapsed time. On-screen timing is sacrificed to provide a complete text to the translation engine.<br><br>
-<b>2. Unconditional Punctuation Dictatorship:</b> Binding punctuation marks left intentionally by the STT or original translator are accepted as absolute merging commands. Comma (,), Semicolon (;), Colon (:), Ellipsis (...), or Double/Triple Dashes (--, ---) at the end of a line trigger immediate merging, regardless of capitalization.<br><br>
-<b>3. Deep POS Analysis and Fake Period Override:</b> STT software may place erroneous periods (.) or exclamation marks (!) in the middle of a sentence during a speaker's pause. nMerge temporarily ignores trailing punctuation and finds the last meaningful word. If its NLP type (POS Tag) is an Adposition (ADP), Conjunction (CCONJ, SCONJ), Auxiliary (AUX), or Particle (PART), the system concludes the sentence is incomplete, overrides the fake period, and forces a merge with the next line.<br><br>
-<b>4. Advanced Regex Surgical Cleaning and Protections:</b> Structural distortions caused by merging are cleaned using Regular Expressions:<br>
-- <i>Dialogue Protection:</i> Refuses merging if the bottom line starts with a single dash (-), indicating a new speaker.<br>
-- <i>Fake Period Annihilation:</i> Surgically removes isolated incorrect periods trapped between merged lines.<br>
-- <i>Residue Cleaning:</i> Smooths text by cleaning leading/trailing ellipses and double dashes.<br><br>
-<b>5. Smart Interjection and Filler Words Filter:</b> Isolated fillers like "Mmm.", "Ah!", "Uh-huh" that add no meaning to translation and confuse LLMs are completely eradicated if they match the emotion dictionary, preserving them only when embedded in valid sentences.<br><br>
-<b>6. Stateful Orthography and Case Corrector:</b> Words meaninglessly capitalized mid-sentence by STT are inspected via spaCy. If the previous line didn't truly end with a period, the first word of the new line is forced to lowercase (unless it's a Proper Noun or "I"). Thus, 100% grammatically compliant blocks are sent to the LLM.
+Modern Speech-to-Text (STT) software references speakers' breathing patterns and scene silence durations rather than grammar rules. This causes single sentences to be split at meaningless points. nMerge adopts the philosophy: "Respect grammatical integrity, not physical timing."<br><br>
+At its core, nMerge carries spaCy's pre-trained NLP model named "en_core_web_sm" for deep grammatical analysis.<br><br>
+<b>The Perfected Execution Pipeline & Dictatorship Mode in v1.2:</b><br><br>
+<b>Stage 1: Pre-wash and "Stateful" ALL CAPS Normalization:</b> Some older subtitles might be completely capitalized (ALL CAPS). This causes the spaCy model to mistake all words for Proper Nouns (PROPN). nMerge analyzes each line. If more than 80% of characters are uppercase, it stamps the line with an "ALL CAPS" seal and temporarily reduces it to lowercase for spaCy.<br><br>
+<b>Stage 2: Time-Independent Absolute Grammar Merging (Immutability Principle & Bypass):</b> Using spaCy, the grammatical anatomy of the sentence is extracted. Two lethal rules are active here:<br>
+<i>- Original DNA Reference:</i> The system checks if the bottom line starts with a lowercase letter by looking at the original file, not the fake (lowered) text. If the original is lowercase, it merges unconditionally. The state of the bottom line object is strictly protected.<br>
+<i>- ALL CAPS Bypass:</i> If the line consists entirely of uppercase letters (ALL CAPS seal is present) and clearly lacks a terminal period, exclamation, or question mark, the system overrides all other rules and merges it with the bottom line.<br><br>
+<b>Stage 3: Absolute Will Interjection Cleaning (Micro-Surgery & Alphanumeric Shield):</b> spaCy's authority to decide what constitutes an "interjection" (INTJ) has been completely revoked! When searching for garbage within a sentence, the system obeys solely your custom <b>Emotion Expressions (Dictionary)</b> defined in the GUI. Furthermore, pure numbers are protected via the "isalnum()" shield, 100% immune to statistical errors.<br><br>
+<b>Stage 4: Stateful Orthography and spaCy Polish:</b> The text passes through the NLP engine one last time. Unjustified capital letters in the middle of the sentence are forced to lowercase.<br><br>
+<b>* Advanced Telemetry (X-Ray) Mode:</b> For lines where the code refuses to merge, it prints the exact reason behind the decision (which rule it failed, what the original first letter was, etc.) to the log screen, allowing you to diagnose hidden errors.<br><br>
 <br><hr><br>
-<p style='text-align: center; color: #888;'><b>Developed by nutuzar | nMerge Otomasyon v1.0</b></p>
+<p style='text-align: center; color: #888;'><b>Developed by nutuzar | nMerge Automation v1.2</b></p>
 """
 
 LANG_DICT = {
     'tr': {
-        'title': "nMerge - Alt Yazı İçi Cümle Birleştirici (v1.0)",
+        'title': "nMerge - Alt Yazı İçi Cümle Birleştirici (v1.2)",
         'out_settings': "Çıktı Ayarları",
         'out_filename': "Çıktı Dosya Adı:",
         'emo_dict': "Duygu İfadeleri (Sözlük)",
@@ -104,20 +98,22 @@ LANG_DICT = {
         'log_model_loaded': "Dil modeli başarıyla yüklendi!\n",
         'log_processing': "[{}/{}] İşleniyor: {}",
         'log_saved': "Başarıyla kaydedildi: {}",
-        'log_deleted_emo': "  -> Sadece duygu ifadesi içeren {} adet satır silindi.",
+        'log_deleted_emo': "  -> İçinden tamamen çöp (nida) temizlenen/silinen satır sayısı: {}",
         'log_done': "\n--- İŞLEM TAMAMLANDI ---",
         'log_total_files': "Toplam {} dosya işlendi.",
-        'log_total_del': "Toplam {} adet gereksiz duygu satırı silindi.",
+        'log_total_del': "Toplam {} adet gereksiz duygu satırı buharlaştırıldı.",
         'err_pysubs2': "Kritik Hata: 'pysubs2' kütüphanesi bulunamadı!\nTerminalde çalıştırın: pip install pysubs2",
         'err_spacy': "Kritik Hata: 'spacy' kütüphanesi bulunamadı!\nTerminalde çalıştırın: pip install spacy",
         'err_spacy_model': "Kritik Hata: spaCy 'en_core_web_sm' modeli bulunamadı!\nTerminalde çalıştırın: python -m spacy download en_core_web_sm",
         'err_read_file': "Dosya okunamadı: {}\n{}",
         'err_save_file': "Kaydedilemedi: {}\n{}",
-        'about_title': "Hakkında - nMerge",
-        'about_html': TR_ABOUT_HTML
+        'about_title': "Hakkında - nMerge v1.2",
+        'about_html': TR_ABOUT_HTML,
+        'cb_debug_mode': "Gelişmiş Telemetri (Röntgen) Modu",
+        'log_debug_rejected': "[RÖNTGEN] REDDEDİLDİ: '{}' + '{}'\n  -> Sebep: {}"
     },
     'en': {
-        'title': "nMerge - Subtitle Intra-Sentence Merger (v1.0)",
+        'title': "nMerge - Subtitle Intra-Sentence Merger (v1.2)",
         'out_settings': "Output Settings",
         'out_filename': "Output Filename:",
         'emo_dict': "Emotion Expressions (Dictionary)",
@@ -148,17 +144,19 @@ LANG_DICT = {
         'log_model_loaded': "Language model successfully loaded!\n",
         'log_processing': "[{}/{}] Processing: {}",
         'log_saved': "Successfully saved: {}",
-        'log_deleted_emo': "  -> {} lines containing only emotion expressions were deleted.",
+        'log_deleted_emo': "  -> {} lines completely evaporated due to pure garbage/filler content.",
         'log_done': "\n--- PROCESS COMPLETED ---",
         'log_total_files': "Total {} files processed.",
-        'log_total_del': "Total {} unnecessary emotion lines deleted.",
+        'log_total_del': "Total {} unnecessary emotion lines evaporated.",
         'err_pysubs2': "Critical Error: 'pysubs2' library not found!\nRun in terminal: pip install pysubs2",
         'err_spacy': "Critical Error: 'spacy' library not found!\nRun in terminal: pip install spacy",
         'err_spacy_model': "Critical Error: spaCy 'en_core_web_sm' model not found!\nRun in terminal: python -m spacy download en_core_web_sm",
         'err_read_file': "Could not read file: {}\n{}",
         'err_save_file': "Could not save: {}\n{}",
-        'about_title': "About - nMerge",
-        'about_html': EN_ABOUT_HTML
+        'about_title': "About - nMerge v1.2",
+        'about_html': EN_ABOUT_HTML,
+        'cb_debug_mode': "Advanced Telemetry (X-Ray) Mode",
+        'log_debug_rejected': "[X-RAY] REJECTED: '{}' + '{}'\n  -> Reason: {}"
     }
 }
 
@@ -189,14 +187,45 @@ def baglanti_hatalarini_temizle_ve_birlestir(su_anki_metin, sonraki_metin):
     m2 = re.sub(r'^(\s*(?:<[^>]+>)?\s*)(\.{2,}|…|-{2,})', r'\1', sonraki_metin.strip())
     return m1.strip() + " " + m2.strip()
 
-def sadece_duygu_mu(metin, emotions_set):
-    temiz = re.sub(r'<[^>]+>', '', metin)
-    saf_metin = re.sub(r'[^\w\s-]', '', temiz).strip()
-    if ' ' in saf_metin:
-        return False
-    if saf_metin.lower() in emotions_set:
-        return True
-    return False
+def nida_temizle_spacy(metin, emotions_set, nlp):
+    """
+    v1.2: spaCy'nin INTJ (Nida) dictatörlüğü YIKILDI.
+    Algoritma sadece ve sadece kullanıcının emotions_set (Duygu Listesi) kurallarına itaat eder.
+    Sayılar ve rakamlar isalnum() kalkanıyla korunmaktadır.
+    """
+    if not metin.strip():
+        return metin
+        
+    doc = nlp(metin)
+    silinecek_kelimeler = []
+    
+    for token in doc:
+        kelime = token.text.lower()
+        if kelime in ['<', '>', 'i', '/i', 'b', '/b', 'u', '/u']:
+            continue
+        if token.is_punct or token.is_space:
+            continue
+            
+        kelime_saf = re.sub(r'[^\w\s-]', '', kelime).strip()
+        if not kelime_saf: 
+            continue
+            
+        if kelime_saf in emotions_set:
+            silinecek_kelimeler.append(token.text)
+            
+    yeni_metin = metin
+    for s_kelime in set(silinecek_kelimeler):
+        pattern = r'\b' + re.escape(s_kelime) + r'\b\s*[,]?\s*'
+        yeni_metin = re.sub(pattern, '', yeni_metin, flags=re.IGNORECASE)
+        
+    temiz = re.sub(r'<[^>]+>', '', yeni_metin)
+    
+    if not any(c.isalnum() for c in temiz):
+        return ""
+        
+    yeni_metin = re.sub(r'^\s*[,]\s*', '', yeni_metin)
+    
+    return yeni_metin.strip()
 
 def spacy_ile_imla_duzelt(metin, onceki_satir_noktayla_mi_bitti, nlp):
     if not metin.strip():
@@ -234,45 +263,54 @@ def spacy_ile_imla_duzelt(metin, onceki_satir_noktayla_mi_bitti, nlp):
             
     return temiz_sonuc, sonraki_satir_yeni_cumle_mi
 
-def spacy_ile_birlestirmeli_mi(su_anki_metin, sonraki_metin, nlp):
+def spacy_ile_birlestirmeli_mi(su_anki_metin, sonraki_metin, sonraki_orijinal, su_anki_all_caps_mi, nlp):
     temiz_su = re.sub(r'<[^>]+>|\{[^}]+\}', '', su_anki_metin).strip()
     temiz_son = re.sub(r'<[^>]+>|\{[^}]+\}', '', sonraki_metin).strip()
+    temiz_son_orijinal = re.sub(r'<[^>]+>|\{[^}]+\}', '', sonraki_orijinal).strip()
 
-    if not temiz_su or not temiz_son:
-        return False
+    if not temiz_su or not temiz_son_orijinal:
+        return False, "Satırlardan biri veya HTML tagleri temizlendikten sonraki hali tamamen boş."
 
-    if re.match(r'^-[^-]', temiz_son):
-        return False
+    if re.match(r'^-[^-]', temiz_son_orijinal):
+        return False, "Sonraki satır diyalog tirelesi (-) ile başlıyor."
 
     if re.search(r'(\.{2,}|…|-{2,})$', temiz_su):
-        return True
-
+        return True, ""
     if temiz_su.endswith((',', ';', ':')):
-        return True
+        return True, ""
+
+    if su_anki_all_caps_mi:
+        son_karakter = temiz_su[-1]
+        if son_karakter not in ['.', '!', '?']:
+            return True, ""
+        else:
+            return False, "Üst satır ALL CAPS damgalı ama cümlenin sonu açıkça bir noktalama işareti (.!?) ile bitmiş."
 
     doc1 = nlp(temiz_su)
     doc2 = nlp(temiz_son)
 
-    if len(doc1) == 0 or len(doc2) == 0:
-        return False
+    if len(doc1) > 0:
+        son_gercek_kelime = None
+        for token in reversed(doc1):
+            if not token.is_punct:
+                son_gercek_kelime = token
+                break
+        
+        if son_gercek_kelime is not None:
+            tehlikeli_bitisler = ['ADP', 'CCONJ', 'SCONJ', 'DET', 'PART', 'AUX']
+            if son_gercek_kelime.pos_ in tehlikeli_bitisler:
+                return True, ""
 
-    first_token_doc2 = doc2[0]
-
-    son_gercek_kelime = None
-    for token in reversed(doc1):
-        if not token.is_punct:
-            son_gercek_kelime = token
+    ilk_harf = ""
+    for c in temiz_son_orijinal:
+        if c.isalpha():
+            ilk_harf = c
             break
     
-    if son_gercek_kelime is not None:
-        tehlikeli_bitisler = ['ADP', 'CCONJ', 'SCONJ', 'DET', 'PART', 'AUX']
-        if son_gercek_kelime.pos_ in tehlikeli_bitisler:
-            return True
+    if ilk_harf and ilk_harf.islower():
+        return True, ""
 
-    if first_token_doc2.is_lower:
-        return True
-
-    return False
+    return False, f"Hiçbir bağ kuralına uymadı. (Orijinal DNA'da tespit edilen ilk harf: '{ilk_harf}' - islower: {ilk_harf.islower() if ilk_harf else 'Yok'})"
 
 # --- THREAD ---
 
@@ -282,12 +320,13 @@ class WorkerThread(QThread):
     finished_signal = pyqtSignal(int, int)
     error_signal = pyqtSignal(str)
 
-    def __init__(self, files, output_name, emotions_set, lang_dict):
+    def __init__(self, files, output_name, emotions_set, lang_dict, debug_mode):
         super().__init__()
         self.files = files
         self.output_name = output_name
         self.emotions_set = set(e.lower() for e in emotions_set)
         self.lang = lang_dict
+        self.debug_mode = debug_mode
 
     def run(self):
         try:
@@ -296,15 +335,18 @@ class WorkerThread(QThread):
             self.error_signal.emit(self.lang['err_pysubs2'])
             return
 
+        # PyInstaller'ın statik analizörünü atlatmak için doğrudan modül importu yapıyoruz
         try:
             import spacy
+            import en_core_web_sm
         except ImportError:
-            self.error_signal.emit(self.lang['err_spacy'])
+            self.error_signal.emit(self.lang['err_spacy'] + "\n(Veya model eksik, lütfen 'python -m spacy download en_core_web_sm' komutunu çalıştırın)")
             return
 
         self.log_signal.emit(self.lang['log_model_loading'])
         try:
-            nlp = spacy.load("en_core_web_sm")
+            # Artık spacy.load("en_core_web_sm") kullanmıyoruz. Doğrudan modülden load yapıyoruz.
+            nlp = en_core_web_sm.load()
             self.log_signal.emit(self.lang['log_model_loaded'])
         except Exception:
             self.error_signal.emit(self.lang['err_spacy_model'])
@@ -335,29 +377,66 @@ class WorkerThread(QThread):
 
             while i < len(subs):
                 su_anki_satir = subs[i]
+                su_anki_orijinal = su_anki_satir.text.strip()
+                su_anki_metin = su_anki_orijinal
+                su_anki_all_caps_mi = False
+                
+                harfler = [c for c in su_anki_orijinal if c.isalpha()]
+                if harfler:
+                    buyuk_harf_orani = sum(1 for c in harfler if c.isupper()) / len(harfler)
+                    if buyuk_harf_orani > 0.8:
+                        su_anki_all_caps_mi = True
+                        su_anki_metin = su_anki_orijinal.lower()
+                        if yeni_cumle_mi:
+                            for i_char, char in enumerate(su_anki_metin):
+                                if char.isalpha():
+                                    su_anki_metin = su_anki_metin[:i_char] + char.upper() + su_anki_metin[i_char+1:]
+                                    break
+                su_anki_satir.text = su_anki_metin
                 
                 while i + 1 < len(subs):
                     sonraki_satir = subs[i+1]
+                    sonraki_orijinal = sonraki_satir.text.strip()
+                    sonraki_metin = sonraki_orijinal
                     
-                    su_anki_metin = su_anki_satir.text.strip()
-                    sonraki_metin = sonraki_satir.text.strip()
+                    s_harfler = [c for c in sonraki_orijinal if c.isalpha()]
+                    if s_harfler:
+                        s_buyuk_orani = sum(1 for c in s_harfler if c.isupper()) / len(s_harfler)
+                        if s_buyuk_orani > 0.8:
+                            sonraki_metin = sonraki_orijinal.lower()
 
-                    if spacy_ile_birlestirmeli_mi(su_anki_metin, sonraki_metin, nlp):
+                    birlestir_mi, sebep = spacy_ile_birlestirmeli_mi(su_anki_satir.text, sonraki_metin, sonraki_orijinal, su_anki_all_caps_mi, nlp)
+                    
+                    if birlestir_mi:
                         su_anki_satir.end = sonraki_satir.end
-                        su_anki_satir.text = baglanti_hatalarini_temizle_ve_birlestir(su_anki_metin, sonraki_metin)
-                        su_anki_metin = su_anki_satir.text
+                        
+                        su_anki_satir.text = baglanti_hatalarini_temizle_ve_birlestir(su_anki_satir.text, sonraki_orijinal)
+                        
+                        su_anki_orijinal = baglanti_hatalarini_temizle_ve_birlestir(su_anki_orijinal, sonraki_orijinal)
+                        yeni_harfler = [c for c in su_anki_orijinal if c.isalpha()]
+                        if yeni_harfler:
+                            su_anki_all_caps_mi = (sum(1 for c in yeni_harfler if c.isupper()) / len(yeni_harfler)) > 0.8
+                        else:
+                            su_anki_all_caps_mi = False
+                            
                         i += 1
                     else:
+                        if self.debug_mode:
+                            t1 = su_anki_satir.text.replace('\n', ' ')
+                            t2 = sonraki_orijinal.replace('\n', ' ')
+                            self.log_signal.emit(self.lang['log_debug_rejected'].format(t1, t2, sebep))
                         break
                 
                 su_anki_satir.text = temizle_metin(su_anki_satir.text)
-                su_anki_satir.text, yeni_cumle_mi = spacy_ile_imla_duzelt(su_anki_satir.text, yeni_cumle_mi, nlp)
+                su_anki_satir.text = nida_temizle_spacy(su_anki_satir.text, self.emotions_set, nlp)
                 
-                if sadece_duygu_mu(su_anki_satir.text, self.emotions_set):
+                if not su_anki_satir.text.strip():
                     silinen_satir_sayisi += 1
                     total_deleted += 1
                     i += 1
                     continue
+                
+                su_anki_satir.text, yeni_cumle_mi = spacy_ile_imla_duzelt(su_anki_satir.text, yeni_cumle_mi, nlp)
                 
                 yeni_satirlar.append(su_anki_satir)
                 i += 1
@@ -427,14 +506,13 @@ class AboutDialog(QDialog):
     def __init__(self, parent, html_content, title_text, close_text):
         super().__init__(parent)
         self.setWindowTitle(title_text)
-        self.resize(800, 600)
+        self.resize(850, 650)
         layout = QVBoxLayout(self)
         
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
         browser.setHtml(html_content)
         
-        # Adding a bit of padding and font configuration for better readability
         font = browser.font()
         font.setPointSize(11)
         browser.setFont(font)
@@ -462,13 +540,12 @@ class MainWindow(QMainWindow):
         self.apply_language()
 
     def initUI(self):
-        self.resize(900, 700)
+        self.resize(950, 750)
         
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_layout = QVBoxLayout(main_widget)
         
-        # TOP LAYOUT FOR LANGUAGE SWITCH
         top_layout = QHBoxLayout()
         top_layout.addStretch()
         
@@ -481,10 +558,8 @@ class MainWindow(QMainWindow):
         top_layout.addWidget(self.btn_en)
         main_layout.addLayout(top_layout)
         
-        # SPLITTER FOR LEFT & RIGHT PANELS
         splitter = QSplitter(Qt.Horizontal)
         
-        # SOL PANEL: Ayarlar ve Duygu İfadeleri
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
@@ -511,7 +586,7 @@ class MainWindow(QMainWindow):
         self.emo_input = QLineEdit()
         self.emo_input.returnPressed.connect(self.add_emotion)
         self.emo_add_btn = QPushButton()
-        self.emo_add_btn.setStyleSheet("background-color: #1e90ff; color: white; font-weight: bold;")
+        self.emo_add_btn.setStyleSheet("background-color: #004080; color: white; font-weight: bold;")
         self.emo_add_btn.clicked.connect(self.add_emotion)
         emo_add_layout.addWidget(self.emo_input)
         emo_add_layout.addWidget(self.emo_add_btn)
@@ -524,7 +599,6 @@ class MainWindow(QMainWindow):
         self.emotion_group.setLayout(emotion_layout)
         left_layout.addWidget(self.emotion_group)
         
-        # SAĞ PANEL: Dosyalar ve İşlem
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
@@ -536,7 +610,7 @@ class MainWindow(QMainWindow):
         
         file_btns_layout = QHBoxLayout()
         self.add_file_btn = QPushButton()
-        self.add_file_btn.setStyleSheet("background-color: #1e90ff; color: white; font-weight: bold;")
+        self.add_file_btn.setStyleSheet("background-color: #004080; color: white; font-weight: bold;")
         self.add_file_btn.clicked.connect(self.add_files)
         self.rem_file_btn = QPushButton()
         self.rem_file_btn.setStyleSheet("background-color: #b22222; color: white; font-weight: bold;")
@@ -551,6 +625,10 @@ class MainWindow(QMainWindow):
         self.file_group.setLayout(file_layout)
         right_layout.addWidget(self.file_group)
         
+        self.debug_cb = QCheckBox()
+        self.debug_cb.setStyleSheet("color: #ff9900; font-weight: bold;")
+        right_layout.addWidget(self.debug_cb)
+
         action_layout = QHBoxLayout()
         self.start_btn = QPushButton()
         self.start_btn.setMinimumHeight(40)
@@ -579,18 +657,17 @@ class MainWindow(QMainWindow):
         splitter.setSizes([300, 800])
         main_layout.addWidget(splitter)
         
-        # ALT PANEL: Telemetri ve Kontroller
         bottom_layout = QVBoxLayout()
         self.telemetry_label = QLabel()
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMaximumHeight(200)
+        self.log_text.setMaximumHeight(250)
         bottom_layout.addWidget(self.telemetry_label)
         bottom_layout.addWidget(self.log_text)
         
         sys_btns_layout = QHBoxLayout()
         self.about_btn = QPushButton()
-        self.about_btn.setStyleSheet("background-color: #1e90ff; color: white; font-weight: bold;")
+        self.about_btn.setStyleSheet("background-color: #004080; color: white; font-weight: bold;")
         self.about_btn.clicked.connect(self.show_about)
         
         self.close_btn = QPushButton()
@@ -629,6 +706,7 @@ class MainWindow(QMainWindow):
         self.rem_file_btn.setText(self.lang['btn_rem_file'])
         self.clear_file_btn.setText(self.lang['btn_clear_all'])
         
+        self.debug_cb.setText(self.lang['cb_debug_mode'])
         self.start_btn.setText(self.lang['btn_start'])
         self.open_folder_btn.setText(self.lang['btn_open_folder'])
         self.telemetry_label.setText(self.lang['telemetry'])
@@ -637,7 +715,6 @@ class MainWindow(QMainWindow):
         self.close_btn.setText(self.lang['btn_close'])
         self.prepared_by_label.setText(self.lang['prepared_by'])
         
-        # Highlight active language button
         if self.current_lang == "tr":
             self.btn_tr.setStyleSheet("background-color: #2a82da; font-weight: bold;")
             self.btn_en.setStyleSheet("")
@@ -660,7 +737,11 @@ class MainWindow(QMainWindow):
                 current_emotions.append(word)
                 self.config["emotions"] = current_emotions
                 save_config(self.config)
-                self.emotion_list.addItem(word)
+                
+                self.emotion_list.clear()
+                for e in sorted(self.config.get("emotions", [])):
+                    self.emotion_list.addItem(e)
+                    
                 self.log_text.append(self.lang['log_emo_added'].format(word))
         self.emo_input.clear()
 
@@ -671,10 +752,14 @@ class MainWindow(QMainWindow):
         
         for item in selected_items:
             word = item.text()
-            self.emotion_list.takeItem(self.emotion_list.row(item))
             if word in self.config["emotions"]:
                 self.config["emotions"].remove(word)
         save_config(self.config)
+        
+        self.emotion_list.clear()
+        for e in sorted(self.config.get("emotions", [])):
+            self.emotion_list.addItem(e)
+            
         self.log_text.append(self.lang['log_emo_deleted'])
 
     def add_files(self):
@@ -724,8 +809,9 @@ class MainWindow(QMainWindow):
 
         emotions = self.config.get("emotions", DEFAULT_EMOTIONS)
         out_name = self.output_name_input.text()
+        is_debug = self.debug_cb.isChecked()
 
-        self.worker = WorkerThread(files, out_name, emotions, self.lang)
+        self.worker = WorkerThread(files, out_name, emotions, self.lang, is_debug)
         self.worker.log_signal.connect(self.log_message)
         self.worker.progress_signal.connect(self.progress_bar.setValue)
         self.worker.error_signal.connect(self.on_error)
@@ -779,11 +865,12 @@ if __name__ == "__main__":
     try:
         import pysubs2
         import spacy
+        import en_core_web_sm
     except ImportError as e:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Critical)
         msg.setText(f"Gerekli kütüphaneler eksik (Missing libraries): {e.name}")
-        msg.setInformativeText(f"Lütfen terminali açıp şu komutu çalıştırın (Run in terminal):\n\npip install pysubs2 spacy PyQt5")
+        msg.setInformativeText(f"Lütfen terminali açıp şu komutu çalıştırın (Run in terminal):\n\npip install pysubs2 spacy PyQt5\npython -m spacy download en_core_web_sm")
         msg.setWindowTitle("Eksik Kütüphane / Missing Library")
         msg.exec_()
         sys.exit(1)
