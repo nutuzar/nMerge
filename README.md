@@ -3,6 +3,7 @@
 
 > *(Türkçe açıklama için aşağıya kaydırın / Scroll down for the Turkish version)*
 
+![nMerge Arayüz](resim1.png)
 ---
 
 # 🇬🇧 English
