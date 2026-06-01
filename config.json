@@ -128,5 +128,6 @@
         "ohhh"
     ],
     "default_output_name": "orijinal_film",
-    "lang": "tr"
+    "lang": "tr",
+    "simplify_mode": true
 }

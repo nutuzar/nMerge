@@ -8,13 +8,11 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                              QMessageBox, QProgressBar, QTextEdit, QFileDialog, QGroupBox, 
                              QSplitter, QDialog, QTextBrowser, QCheckBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QPalette, QColor, QFont
+from PyQt5.QtGui import QFont
 
 if getattr(sys, 'frozen', False):
-    # PyInstaller ile derlenmişse (.exe)
     APP_DIR = os.path.dirname(sys.executable)
 else:
-    # Normal Python scripti olarak çalışıyorsa
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 CONFIG_FILE = os.path.join(APP_DIR, "config.json")
@@ -28,46 +26,42 @@ DEFAULT_EMOTIONS = [
 ]
 
 TR_ABOUT_HTML = """
-<h3 style='color: #2a82da;'>nMerge v1.2: LLM Çeviri Optimizasyonu İçin Akıllı Altyazı (SRT) Ön İşlemci ve Gramer Motoru</h3>
+<h3 style='color: #0a84ff; font-family: -apple-system, sans-serif;'>nMerge v1.3: LLM Çeviri Optimizasyonu İçin Akıllı Altyazı (SRT) Ön İşlemci</h3>
 <br>
 <b>Projenin Amacı ve Felsefesi</b><br>
-nMerge, altyazı (SRT) dosyalarını geleneksel izleme deneyimi için değil, Büyük Dil Modeli (LLM) tabanlı yapay zeka çeviri motorlarına hazırlamak amacıyla geliştirilmiş, NLP (Doğal Dil İşleme) destekli bir ön işlem (pre-processing) otomasyonudur.<br><br>
-Modern Speech-to-Text (STT) yazılımları, konuşma metnini yazıya dökerken gramer kurallarını değil, konuşmacının nefes alışlarını ve sahnelerdeki sessizlik sürelerini referans alır. Bu durum, tek bir cümlenin anlamsız yerlerden bölünerek iki veya üç farklı altyazı satırına dağılmasına neden olur. nMerge, bu sorunu çözmek için "Fiziksel zamanlamaya değil, gramatikal bütünlüğe saygı duy" felsefesini benimser.<br><br>
-nMerge, altyazılardaki derin dilbilgisi analizlerini gerçekleştirmek için spaCy kütüphanesinin "en_core_web_sm" (English Core Web Small) isimli önceden eğitilmiş NLP modelini kalbinde taşır.<br><br>
-<b>v1.2 ile Kusursuzlaşan İşlem Boru Hattı ve Diktatörlük Modu:</b><br><br>
-<b>1. Aşama: Ön Yıkama ve "Evrensel Hafızalı" ALL CAPS Normalizasyonu:</b> Bazı eski altyazılar tamamen büyük harfle (ALL CAPS) yazılmış olabilir. Bu durum spaCy modelinin tüm kelimeleri Özel İsim (PROPN) sanmasına neden olur. nMerge, her satırı analiz eder. Eğer karakterlerin %80'inden fazlası büyük harfse, o satıra "ALL CAPS" mührü vurur ve spaCy'nin anlayabilmesi için geçici olarak küçük harfe indirger.<br><br>
-<b>2. Aşama: Zaman-Bağımsız Gramatikal Birleştirme (Dokunulmazlık İlkesi ve Bypass):</b> spaCy kullanılarak cümlenin dilbilgisi anatomisi çıkarılır. Bu aşamada iki ölümcül kural devrededir:<br>
-<i>- Orijinal DNA Referansı:</i> Sistem, alt satırın küçük harfle başlayıp başlamadığını sahte (küçültülmüş) metinden değil, orijinal dosyadan teyit eder. Orijinali küçükse tereddütsüz birleştirir. Alt satırın orijinal objesi (State) asla zehirlenmez, dokunulmazlığı korunur.<br>
-<i>- ALL CAPS Bypass:</i> Eğer satır tamamen büyük harflerden oluşuyorsa (ALL CAPS mührü varsa) ve sonunda açıkça nokta, ünlem veya soru işareti yoksa, sistem diğer tüm kuralları ezerek satırı alt satırla birleştirir.<br><br>
-<b>3. Aşama: Mutlak İrade ile Nida Temizliği (Mikro-Cerrahi ve Alfanümerik Koruma):</b> spaCy'nin neyin "nida" (INTJ) olduğuna karar verme yetkisi tamamen elinden alınmıştır! Sistem, cümle içindeki çöpleri ararken sadece ve sadece sizin arayüzden belirlediğiniz <b>Duygu İfadeleri (Sözlük)</b> listesine itaat eder. Ayrıca sayılar ve rakamlar "isalnum()" kalkanıyla korunarak istatistiksel hata kurbanı olmaktan %100 kurtarılmıştır.<br><br>
-<b>4. Aşama: Hafızalı İmla ve spaCy Cilası (Stateful Orthography):</b> Metin son kez NLP motorundan geçer. Cümlenin ortasında kalan haksız büyük harfler küçük harfe zorlanır. Döngü, cümlenin nasıl bittiğini hafızasına yazar ve sonraki satırın kaderini belirler.<br><br>
-<b>* Gelişmiş Telemetri (Röntgen) Modu:</b> Kodun birleştirmeyi reddettiği satırlarda, kararın arkasındaki nedeni (hangi kurala takıldığını, orijinal ilk harfin ne olduğunu vb.) log ekranına basarak karanlıkta kalan hataları teşhis etmenizi sağlar.<br><br>
-<br><hr><br>
-<p style='text-align: center; color: #888;'><b>Developed by nutuzar | nMerge Otomasyon v1.2</b></p>
+nMerge, altyazı (SRT) dosyalarını geleneksel izleme deneyimi için değil, Büyük Dil Modeli (LLM) tabanlı yapay zeka çeviri motorlarına hazırlamak amacıyla geliştirilmiş, NLP destekli bir ön işlem otomasyonudur.<br><br>
+Modern Speech-to-Text (STT) yazılımları, konuşma metnini yazıya dökerken gramer kurallarını değil, fiziksel süreleri referans alır. nMerge, bu sorunu çözmek için "Fiziksel zamanlamaya değil, gramatikal bütünlüğe saygı duy" felsefesini benimser.<br><br>
+<b>v1.3 Güncellemeleri ve İşlem Boru Hattı:</b><br><br>
+<b>1. "Sadeleştirme" Modu (Kullanıcı İradesi vs. spaCy Otonomisi):</b><br>
+Yeni eklenen "Sadeleştirme" seçeneği kapalıyken, sistem sadece sizin tanımladığınız <i>Duygu İfadeleri (Sözlük)</i> listesine itaat eder. Ancak bu kutuyu işaretlerseniz, spaCy'nin tasmaları çıkarılır ve metindeki tüm INTJ (Nida) etiketli kelimeler acımasızca temizlenir.<br><br>
+<b>2. ALL CAPS Normalizasyonu ve Dokunulmazlık İlkesi:</b><br> 
+Karakterlerinin %80'i büyük harf olan satırlar tespit edilip spaCy için geçici olarak küçük harfe indirgenir. Alt satırla birleştirme kararı verilirken her zaman dosyanın <b>Orijinal DNA'sı</b> (ilk harfin durumu) referans alınır.<br><br>
+<b>3. Alfanümerik Koruma:</b> Sayılar ve rakamlar "isalnum()" kalkanıyla korunarak nida temizliği sırasında istatistiksel hata kurbanı olmaktan kurtarılır.<br><br>
+<b>4. Hafızalı İmla Motoru (Stateful Orthography):</b> Cümlenin ortasında kalan haksız büyük harfler küçük harfe zorlanır. Döngü, cümlenin nasıl bittiğini hafızasına yazar ve sonraki satırın kaderini belirler.<br><br>
+<br><hr style='border: 1px solid #3a3a3c;'><br>
+<p style='text-align: center; color: #8e8e93;'><b>Developed by nutuzar | nMerge Otomasyon v1.3 (Apple Dark Mode Edition)</b></p>
 """
 
 EN_ABOUT_HTML = """
-<h3 style='color: #2a82da;'>nMerge v1.2: Smart Subtitle (SRT) Preprocessor and Grammar Engine for LLM Optimization</h3>
+<h3 style='color: #0a84ff; font-family: -apple-system, sans-serif;'>nMerge v1.3: Smart Subtitle (SRT) Preprocessor for LLM Optimization</h3>
 <br>
 <b>Project Purpose and Philosophy</b><br>
-nMerge is an NLP-supported preprocessing automation developed to prepare subtitle (SRT) files not for traditional viewing experiences, but for Large Language Model (LLM) based AI translation engines.<br><br>
-Modern Speech-to-Text (STT) software references speakers' breathing patterns and scene silence durations rather than grammar rules. This causes single sentences to be split at meaningless points. nMerge adopts the philosophy: "Respect grammatical integrity, not physical timing."<br><br>
-At its core, nMerge carries spaCy's pre-trained NLP model named "en_core_web_sm" for deep grammatical analysis.<br><br>
-<b>The Perfected Execution Pipeline & Dictatorship Mode in v1.2:</b><br><br>
-<b>Stage 1: Pre-wash and "Stateful" ALL CAPS Normalization:</b> Some older subtitles might be completely capitalized (ALL CAPS). This causes the spaCy model to mistake all words for Proper Nouns (PROPN). nMerge analyzes each line. If more than 80% of characters are uppercase, it stamps the line with an "ALL CAPS" seal and temporarily reduces it to lowercase for spaCy.<br><br>
-<b>Stage 2: Time-Independent Absolute Grammar Merging (Immutability Principle & Bypass):</b> Using spaCy, the grammatical anatomy of the sentence is extracted. Two lethal rules are active here:<br>
-<i>- Original DNA Reference:</i> The system checks if the bottom line starts with a lowercase letter by looking at the original file, not the fake (lowered) text. If the original is lowercase, it merges unconditionally. The state of the bottom line object is strictly protected.<br>
-<i>- ALL CAPS Bypass:</i> If the line consists entirely of uppercase letters (ALL CAPS seal is present) and clearly lacks a terminal period, exclamation, or question mark, the system overrides all other rules and merges it with the bottom line.<br><br>
-<b>Stage 3: Absolute Will Interjection Cleaning (Micro-Surgery & Alphanumeric Shield):</b> spaCy's authority to decide what constitutes an "interjection" (INTJ) has been completely revoked! When searching for garbage within a sentence, the system obeys solely your custom <b>Emotion Expressions (Dictionary)</b> defined in the GUI. Furthermore, pure numbers are protected via the "isalnum()" shield, 100% immune to statistical errors.<br><br>
-<b>Stage 4: Stateful Orthography and spaCy Polish:</b> The text passes through the NLP engine one last time. Unjustified capital letters in the middle of the sentence are forced to lowercase.<br><br>
-<b>* Advanced Telemetry (X-Ray) Mode:</b> For lines where the code refuses to merge, it prints the exact reason behind the decision (which rule it failed, what the original first letter was, etc.) to the log screen, allowing you to diagnose hidden errors.<br><br>
-<br><hr><br>
-<p style='text-align: center; color: #888;'><b>Developed by nutuzar | nMerge Automation v1.2</b></p>
+nMerge is an NLP-supported preprocessing automation developed to prepare subtitle (SRT) files for Large Language Model (LLM) based AI translation engines.<br><br>
+Modern Speech-to-Text (STT) software references speakers' breathing patterns rather than grammar rules. nMerge adopts the philosophy: "Respect grammatical integrity, not physical timing."<br><br>
+<b>v1.3 Updates & Execution Pipeline:</b><br><br>
+<b>1. "Simplification" Mode (User Will vs. spaCy Autonomy):</b><br>
+When the new "Simplification" option is disabled, the system obeys solely your custom <i>Emotion Expressions</i> list. If checked, spaCy's leash is removed, and all words tagged as INTJ (Interjection) are aggressively eradicated.<br><br>
+<b>2. ALL CAPS Normalization & Immutability Principle:</b><br>
+Lines with >80% uppercase characters are temporarily lowered for spaCy. Merging decisions are strictly based on the <b>Original DNA</b> (the actual first letter state) of the file.<br><br>
+<b>3. Alphanumeric Shield:</b> Pure numbers are protected via the "isalnum()" shield, preventing accidental deletion during interjection cleaning.<br><br>
+<b>4. Stateful Orthography:</b> Unjustified capital letters in the middle of sentences are forced to lowercase. The system remembers sentence endings to format the next line accordingly.<br><br>
+<br><hr style='border: 1px solid #3a3a3c;'><br>
+<p style='text-align: center; color: #8e8e93;'><b>Developed by nutuzar | nMerge Automation v1.3 (Apple Dark Mode Edition)</b></p>
 """
 
 LANG_DICT = {
     'tr': {
-        'title': "nMerge - Alt Yazı İçi Cümle Birleştirici (v1.2)",
+        'title': "nMerge - Alt Yazı İçi Cümle Birleştirici (v1.3)",
         'out_settings': "Çıktı Ayarları",
         'out_filename': "Çıktı Dosya Adı:",
         'emo_dict': "Duygu İfadeleri (Sözlük)",
@@ -78,6 +72,8 @@ LANG_DICT = {
         'btn_add_file': "Dosya Ekle",
         'btn_rem_file': "Seçileni Çıkar",
         'btn_clear_all': "Tümünü Temizle",
+        'cb_simplify': "Sadeleştirme (spaCy INTJ Agresif Temizlik)",
+        'cb_debug_mode': "Gelişmiş Telemetri (Röntgen) Modu",
         'btn_start': "BAŞLAT",
         'btn_open_folder': "Çıktı Klasörünü Aç",
         'telemetry': "Telemetri / Rapor Ekranı:",
@@ -107,13 +103,12 @@ LANG_DICT = {
         'err_spacy_model': "Kritik Hata: spaCy 'en_core_web_sm' modeli bulunamadı!\nTerminalde çalıştırın: python -m spacy download en_core_web_sm",
         'err_read_file': "Dosya okunamadı: {}\n{}",
         'err_save_file': "Kaydedilemedi: {}\n{}",
-        'about_title': "Hakkında - nMerge v1.2",
+        'about_title': "Hakkında - nMerge v1.3",
         'about_html': TR_ABOUT_HTML,
-        'cb_debug_mode': "Gelişmiş Telemetri (Röntgen) Modu",
         'log_debug_rejected': "[RÖNTGEN] REDDEDİLDİ: '{}' + '{}'\n  -> Sebep: {}"
     },
     'en': {
-        'title': "nMerge - Subtitle Intra-Sentence Merger (v1.2)",
+        'title': "nMerge - Subtitle Intra-Sentence Merger (v1.3)",
         'out_settings': "Output Settings",
         'out_filename': "Output Filename:",
         'emo_dict': "Emotion Expressions (Dictionary)",
@@ -124,6 +119,8 @@ LANG_DICT = {
         'btn_add_file': "Add File",
         'btn_rem_file': "Remove Selected",
         'btn_clear_all': "Clear All",
+        'cb_simplify': "Simplify (spaCy INTJ Aggressive Clean)",
+        'cb_debug_mode': "Advanced Telemetry (X-Ray) Mode",
         'btn_start': "START",
         'btn_open_folder': "Open Output Folder",
         'telemetry': "Telemetry / Report Screen:",
@@ -153,9 +150,8 @@ LANG_DICT = {
         'err_spacy_model': "Critical Error: spaCy 'en_core_web_sm' model not found!\nRun in terminal: python -m spacy download en_core_web_sm",
         'err_read_file': "Could not read file: {}\n{}",
         'err_save_file': "Could not save: {}\n{}",
-        'about_title': "About - nMerge v1.2",
+        'about_title': "About - nMerge v1.3",
         'about_html': EN_ABOUT_HTML,
-        'cb_debug_mode': "Advanced Telemetry (X-Ray) Mode",
         'log_debug_rejected': "[X-RAY] REJECTED: '{}' + '{}'\n  -> Reason: {}"
     }
 }
@@ -167,7 +163,7 @@ def load_config():
                 return json.load(f)
         except:
             pass
-    return {"emotions": DEFAULT_EMOTIONS, "default_output_name": "orijinal_film", "lang": "tr"}
+    return {"emotions": DEFAULT_EMOTIONS, "default_output_name": "orijinal_film", "lang": "tr", "simplify_mode": False}
 
 def save_config(config):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -187,10 +183,9 @@ def baglanti_hatalarini_temizle_ve_birlestir(su_anki_metin, sonraki_metin):
     m2 = re.sub(r'^(\s*(?:<[^>]+>)?\s*)(\.{2,}|…|-{2,})', r'\1', sonraki_metin.strip())
     return m1.strip() + " " + m2.strip()
 
-def nida_temizle_spacy(metin, emotions_set, nlp):
+def nida_temizle_spacy(metin, emotions_set, nlp, use_spacy_intj=False):
     """
-    v1.2: spaCy'nin INTJ (Nida) dictatörlüğü YIKILDI.
-    Algoritma sadece ve sadece kullanıcının emotions_set (Duygu Listesi) kurallarına itaat eder.
+    v1.3: Sadeleştirme modu devredeyse spaCy'nin INTJ kuralı da listeye ek olarak çalışır.
     Sayılar ve rakamlar isalnum() kalkanıyla korunmaktadır.
     """
     if not metin.strip():
@@ -210,7 +205,10 @@ def nida_temizle_spacy(metin, emotions_set, nlp):
         if not kelime_saf: 
             continue
             
+        # Öncelik özel sözlükte, eğer orada yoksa ve Sadeleştirme açıksa spaCy'nin fikrini al
         if kelime_saf in emotions_set:
+            silinecek_kelimeler.append(token.text)
+        elif use_spacy_intj and token.pos_ == "INTJ":
             silinecek_kelimeler.append(token.text)
             
     yeni_metin = metin
@@ -320,13 +318,14 @@ class WorkerThread(QThread):
     finished_signal = pyqtSignal(int, int)
     error_signal = pyqtSignal(str)
 
-    def __init__(self, files, output_name, emotions_set, lang_dict, debug_mode):
+    def __init__(self, files, output_name, emotions_set, lang_dict, debug_mode, use_spacy_intj):
         super().__init__()
         self.files = files
         self.output_name = output_name
         self.emotions_set = set(e.lower() for e in emotions_set)
         self.lang = lang_dict
         self.debug_mode = debug_mode
+        self.use_spacy_intj = use_spacy_intj
 
     def run(self):
         try:
@@ -335,7 +334,6 @@ class WorkerThread(QThread):
             self.error_signal.emit(self.lang['err_pysubs2'])
             return
 
-        # PyInstaller'ın statik analizörünü atlatmak için doğrudan modül importu yapıyoruz
         try:
             import spacy
             import en_core_web_sm
@@ -345,7 +343,6 @@ class WorkerThread(QThread):
 
         self.log_signal.emit(self.lang['log_model_loading'])
         try:
-            # Artık spacy.load("en_core_web_sm") kullanmıyoruz. Doğrudan modülden load yapıyoruz.
             nlp = en_core_web_sm.load()
             self.log_signal.emit(self.lang['log_model_loaded'])
         except Exception:
@@ -428,7 +425,7 @@ class WorkerThread(QThread):
                         break
                 
                 su_anki_satir.text = temizle_metin(su_anki_satir.text)
-                su_anki_satir.text = nida_temizle_spacy(su_anki_satir.text, self.emotions_set, nlp)
+                su_anki_satir.text = nida_temizle_spacy(su_anki_satir.text, self.emotions_set, nlp, self.use_spacy_intj)
                 
                 if not su_anki_satir.text.strip():
                     silinen_satir_sayisi += 1
@@ -514,14 +511,15 @@ class AboutDialog(QDialog):
         browser.setHtml(html_content)
         
         font = browser.font()
-        font.setPointSize(11)
+        font.setPointSize(12)
         browser.setFont(font)
         
         layout.addWidget(browser)
         
         btn = QPushButton(close_text)
+        btn.setObjectName("btnPrimary")
         btn.clicked.connect(self.accept)
-        btn.setMinimumHeight(35)
+        btn.setMinimumHeight(40)
         layout.addWidget(btn, alignment=Qt.AlignCenter)
 
 class MainWindow(QMainWindow):
@@ -540,18 +538,22 @@ class MainWindow(QMainWindow):
         self.apply_language()
 
     def initUI(self):
-        self.resize(950, 750)
+        self.resize(1000, 750)
         
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_layout = QVBoxLayout(main_widget)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
         
         top_layout = QHBoxLayout()
         top_layout.addStretch()
         
         self.btn_tr = QPushButton("TR")
+        self.btn_tr.setFixedSize(50, 30)
         self.btn_tr.clicked.connect(lambda: self.switch_language("tr"))
         self.btn_en = QPushButton("EN")
+        self.btn_en.setFixedSize(50, 30)
         self.btn_en.clicked.connect(lambda: self.switch_language("en"))
         
         top_layout.addWidget(self.btn_tr)
@@ -559,13 +561,15 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(top_layout)
         
         splitter = QSplitter(Qt.Horizontal)
+        splitter.setHandleWidth(10)
         
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setContentsMargins(0, 0, 10, 0)
         
         self.output_group = QGroupBox()
         output_layout = QVBoxLayout()
+        output_layout.setSpacing(10)
         self.output_label = QLabel()
         self.output_name_input = QLineEdit()
         self.output_name_input.setText(self.config.get("default_output_name", "orijinal_film"))
@@ -577,6 +581,7 @@ class MainWindow(QMainWindow):
         
         self.emotion_group = QGroupBox()
         emotion_layout = QVBoxLayout()
+        emotion_layout.setSpacing(10)
         self.emotion_list = QListWidget()
         for e in sorted(self.config.get("emotions", [])):
             self.emotion_list.addItem(e)
@@ -586,14 +591,14 @@ class MainWindow(QMainWindow):
         self.emo_input = QLineEdit()
         self.emo_input.returnPressed.connect(self.add_emotion)
         self.emo_add_btn = QPushButton()
-        self.emo_add_btn.setStyleSheet("background-color: #004080; color: white; font-weight: bold;")
+        self.emo_add_btn.setObjectName("btnPrimary")
         self.emo_add_btn.clicked.connect(self.add_emotion)
         emo_add_layout.addWidget(self.emo_input)
         emo_add_layout.addWidget(self.emo_add_btn)
         emotion_layout.addLayout(emo_add_layout)
         
         self.emo_del_btn = QPushButton()
-        self.emo_del_btn.setStyleSheet("background-color: #b22222; color: white; font-weight: bold;")
+        self.emo_del_btn.setObjectName("btnDestructive")
         self.emo_del_btn.clicked.connect(self.del_emotion)
         emotion_layout.addWidget(self.emo_del_btn)
         self.emotion_group.setLayout(emotion_layout)
@@ -601,22 +606,24 @@ class MainWindow(QMainWindow):
         
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setContentsMargins(10, 0, 0, 0)
+        right_layout.setSpacing(15)
         
         self.file_group = QGroupBox()
         file_layout = QVBoxLayout()
+        file_layout.setSpacing(10)
         self.file_list = DragDropListWidget()
         file_layout.addWidget(self.file_list)
         
         file_btns_layout = QHBoxLayout()
         self.add_file_btn = QPushButton()
-        self.add_file_btn.setStyleSheet("background-color: #004080; color: white; font-weight: bold;")
+        self.add_file_btn.setObjectName("btnPrimary")
         self.add_file_btn.clicked.connect(self.add_files)
         self.rem_file_btn = QPushButton()
-        self.rem_file_btn.setStyleSheet("background-color: #b22222; color: white; font-weight: bold;")
+        self.rem_file_btn.setObjectName("btnDestructive")
         self.rem_file_btn.clicked.connect(self.remove_files)
         self.clear_file_btn = QPushButton()
-        self.clear_file_btn.setStyleSheet("background-color: #b22222; color: white; font-weight: bold;")
+        self.clear_file_btn.setObjectName("btnDestructive")
         self.clear_file_btn.clicked.connect(self.file_list.clear)
         file_btns_layout.addWidget(self.add_file_btn)
         file_btns_layout.addWidget(self.rem_file_btn)
@@ -625,22 +632,32 @@ class MainWindow(QMainWindow):
         self.file_group.setLayout(file_layout)
         right_layout.addWidget(self.file_group)
         
+        options_layout = QVBoxLayout()
+        self.simplify_cb = QCheckBox()
+        self.simplify_cb.setStyleSheet("color: #ff9f0a; font-weight: bold; font-size: 14px;")
+        self.simplify_cb.setChecked(self.config.get("simplify_mode", False))
+        self.simplify_cb.stateChanged.connect(self.update_config_simplify)
+        
         self.debug_cb = QCheckBox()
-        self.debug_cb.setStyleSheet("color: #ff9900; font-weight: bold;")
-        right_layout.addWidget(self.debug_cb)
+        self.debug_cb.setStyleSheet("color: #32d74b; font-weight: bold;")
+        
+        options_layout.addWidget(self.simplify_cb)
+        options_layout.addWidget(self.debug_cb)
+        right_layout.addLayout(options_layout)
 
         action_layout = QHBoxLayout()
         self.start_btn = QPushButton()
-        self.start_btn.setMinimumHeight(40)
-        self.start_btn.setStyleSheet("background-color: #2e8b57; color: white; font-weight: bold; font-size: 14px;")
+        self.start_btn.setObjectName("btnSuccess")
+        self.start_btn.setMinimumHeight(45)
         font = self.start_btn.font()
+        font.setPointSize(14)
         font.setBold(True)
         self.start_btn.setFont(font)
         self.start_btn.clicked.connect(self.start_processing)
         
         self.open_folder_btn = QPushButton()
-        self.open_folder_btn.setMinimumHeight(40)
-        self.open_folder_btn.setStyleSheet("background-color: #d4af37; color: black; font-weight: bold;")
+        self.open_folder_btn.setObjectName("btnWarning")
+        self.open_folder_btn.setMinimumHeight(45)
         self.open_folder_btn.setEnabled(False)
         self.open_folder_btn.clicked.connect(self.open_output_folder)
         
@@ -650,31 +667,35 @@ class MainWindow(QMainWindow):
         
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(True)
         right_layout.addWidget(self.progress_bar)
         
         splitter.addWidget(left_panel)
         splitter.addWidget(right_panel)
-        splitter.setSizes([300, 800])
+        splitter.setSizes([350, 850])
         main_layout.addWidget(splitter)
         
         bottom_layout = QVBoxLayout()
+        bottom_layout.setSpacing(10)
         self.telemetry_label = QLabel()
+        self.telemetry_label.setStyleSheet("color: #8e8e93; font-weight: bold;")
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMaximumHeight(250)
+        self.log_text.setMaximumHeight(200)
         bottom_layout.addWidget(self.telemetry_label)
         bottom_layout.addWidget(self.log_text)
         
         sys_btns_layout = QHBoxLayout()
         self.about_btn = QPushButton()
-        self.about_btn.setStyleSheet("background-color: #004080; color: white; font-weight: bold;")
+        self.about_btn.setObjectName("btnPrimary")
         self.about_btn.clicked.connect(self.show_about)
         
         self.close_btn = QPushButton()
-        self.close_btn.setStyleSheet("background-color: #b22222; color: white; font-weight: bold;")
+        self.close_btn.setObjectName("btnDestructive")
         self.close_btn.clicked.connect(self.exit_app)
         
         self.prepared_by_label = QLabel()
+        self.prepared_by_label.setStyleSheet("color: #8e8e93;")
         
         sys_btns_layout.addWidget(self.about_btn)
         sys_btns_layout.addStretch()
@@ -706,6 +727,7 @@ class MainWindow(QMainWindow):
         self.rem_file_btn.setText(self.lang['btn_rem_file'])
         self.clear_file_btn.setText(self.lang['btn_clear_all'])
         
+        self.simplify_cb.setText(self.lang['cb_simplify'])
         self.debug_cb.setText(self.lang['cb_debug_mode'])
         self.start_btn.setText(self.lang['btn_start'])
         self.open_folder_btn.setText(self.lang['btn_open_folder'])
@@ -716,17 +738,21 @@ class MainWindow(QMainWindow):
         self.prepared_by_label.setText(self.lang['prepared_by'])
         
         if self.current_lang == "tr":
-            self.btn_tr.setStyleSheet("background-color: #2a82da; font-weight: bold;")
-            self.btn_en.setStyleSheet("")
+            self.btn_tr.setStyleSheet("background-color: #0a84ff; color: white; border-radius: 4px; font-weight: bold;")
+            self.btn_en.setStyleSheet("background-color: #3a3a3c; color: #f5f5f7; border-radius: 4px;")
         else:
-            self.btn_en.setStyleSheet("background-color: #2a82da; font-weight: bold;")
-            self.btn_tr.setStyleSheet("")
+            self.btn_en.setStyleSheet("background-color: #0a84ff; color: white; border-radius: 4px; font-weight: bold;")
+            self.btn_tr.setStyleSheet("background-color: #3a3a3c; color: #f5f5f7; border-radius: 4px;")
 
     def exit_app(self):
         self.close()
 
     def update_config_name(self):
         self.config["default_output_name"] = self.output_name_input.text()
+        save_config(self.config)
+
+    def update_config_simplify(self):
+        self.config["simplify_mode"] = self.simplify_cb.isChecked()
         save_config(self.config)
 
     def add_emotion(self):
@@ -810,8 +836,9 @@ class MainWindow(QMainWindow):
         emotions = self.config.get("emotions", DEFAULT_EMOTIONS)
         out_name = self.output_name_input.text()
         is_debug = self.debug_cb.isChecked()
+        is_simplify = self.simplify_cb.isChecked()
 
-        self.worker = WorkerThread(files, out_name, emotions, self.lang, is_debug)
+        self.worker = WorkerThread(files, out_name, emotions, self.lang, is_debug, is_simplify)
         self.worker.log_signal.connect(self.log_message)
         self.worker.progress_signal.connect(self.progress_bar.setValue)
         self.worker.error_signal.connect(self.on_error)
@@ -837,21 +864,122 @@ class MainWindow(QMainWindow):
 
 def set_dark_theme(app):
     app.setStyle('Fusion')
-    palette = QPalette()
-    palette.setColor(QPalette.Window, QColor(45, 45, 45))
-    palette.setColor(QPalette.WindowText, Qt.white)
-    palette.setColor(QPalette.Base, QColor(25, 25, 25))
-    palette.setColor(QPalette.AlternateBase, QColor(45, 45, 45))
-    palette.setColor(QPalette.ToolTipBase, Qt.white)
-    palette.setColor(QPalette.ToolTipText, Qt.white)
-    palette.setColor(QPalette.Text, Qt.white)
-    palette.setColor(QPalette.Button, QColor(53, 53, 53))
-    palette.setColor(QPalette.ButtonText, Qt.white)
-    palette.setColor(QPalette.BrightText, Qt.red)
-    palette.setColor(QPalette.Link, QColor(42, 130, 218))
-    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-    palette.setColor(QPalette.HighlightedText, Qt.black)
-    app.setPalette(palette)
+    
+    apple_dark_qss = """
+    QWidget {
+        background-color: #1c1c1e;
+        color: #f5f5f7;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: 14px;
+    }
+    QGroupBox {
+        border: 1px solid #3a3a3c;
+        border-radius: 10px;
+        margin-top: 4ex;
+        font-weight: bold;
+        color: #8e8e93;
+    }
+    QGroupBox::title {
+        subcontrol-origin: margin;
+        subcontrol-position: top center;
+        padding: 0 10px;
+    }
+    QLineEdit, QTextEdit, QListWidget, QTextBrowser {
+        background-color: #2c2c2e;
+        border: 1px solid #3a3a3c;
+        border-radius: 8px;
+        padding: 8px;
+        color: #f5f5f7;
+        selection-background-color: #0a84ff;
+    }
+    QLineEdit:focus, QTextEdit:focus, QListWidget:focus {
+        border: 1px solid #0a84ff;
+    }
+    QPushButton {
+        background-color: #3a3a3c;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        color: #f5f5f7;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background-color: #4a4a4c;
+    }
+    QPushButton:pressed {
+        background-color: #2c2c2e;
+    }
+    QPushButton:disabled {
+        background-color: #2c2c2e;
+        color: #555555;
+    }
+    #btnPrimary {
+        background-color: #0a84ff;
+        color: white;
+    }
+    #btnPrimary:hover {
+        background-color: #0070e0;
+    }
+    #btnDestructive {
+        background-color: #ff453a;
+        color: white;
+    }
+    #btnDestructive:hover {
+        background-color: #d70015;
+    }
+    #btnSuccess {
+        background-color: #30d158;
+        color: black;
+    }
+    #btnSuccess:hover {
+        background-color: #28b84d;
+    }
+    #btnSuccess:disabled {
+        background-color: #1a5226;
+        color: #555555;
+    }
+    #btnWarning {
+        background-color: #ffd60a;
+        color: black;
+    }
+    #btnWarning:hover {
+        background-color: #e5c009;
+    }
+    #btnWarning:disabled {
+        background-color: #665604;
+        color: #555555;
+    }
+    QProgressBar {
+        border: 1px solid #3a3a3c;
+        border-radius: 8px;
+        text-align: center;
+        background-color: #2c2c2e;
+        color: white;
+        font-weight: bold;
+    }
+    QProgressBar::chunk {
+        background-color: #0a84ff;
+        border-radius: 7px;
+    }
+    QCheckBox {
+        spacing: 10px;
+    }
+    QCheckBox::indicator {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: 1px solid #555;
+        background-color: #2c2c2e;
+    }
+    QCheckBox::indicator:checked {
+        background-color: #0a84ff;
+        border: 1px solid #0a84ff;
+    }
+    QSplitter::handle {
+        background-color: #1c1c1e;
+    }
+    """
+    app.setStyleSheet(apple_dark_qss)
 
 if __name__ == "__main__":
     if hasattr(Qt, 'AA_EnableHighDpiScaling'):
